@@ -32,12 +32,21 @@ jobs:
       - name: Generate rules
         run: |
           python generate.py
-          ls -lh rules/  # 显示生成的文件，调试用
+          ls -lh rules/  # 显示生成文件，便于调试
 
-      - name: Commit and push (always first run)
+      - name: Check for changes
+        id: diff
+        run: |
+          git diff --quiet || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add rules/
-          git commit -m "chore: update APNIC CN rules" || echo "No changes to commit"
-          git push
+          if [ "${{ steps.diff.outputs.changed }}" == "true" ] || [ "$(git rev-parse HEAD)" == "$(git rev-parse --verify HEAD^0)" ]; then
+            git commit -m "chore: update APNIC CN rules" || echo "No changes to commit"
+            git push
+          else
+            echo "No changes, skip commit"
+          fi
