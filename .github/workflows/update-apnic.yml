@@ -23,10 +23,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Install sing-box
+      - name: Install sing-box (official way)
         run: |
           curl -fsSL https://sing-box.app/install.sh | sh
-          sudo mv sing-box /usr/local/bin/sing-box
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
           sing-box version
 
       - name: Generate rules
