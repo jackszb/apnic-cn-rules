@@ -1,11 +1,15 @@
 import requests
-import math
 import json
 import subprocess
 import ipaddress
 import sys
+from pathlib import Path
 
 URL = "http://ftp.apnic.net/stats/apnic/delegated-apnic-latest"
+
+# ===== 统一输出目录 =====
+RULES_DIR = Path("rules")
+RULES_DIR.mkdir(parents=True, exist_ok=True)  # 自动创建 rules/
 
 
 def fetch_apnic():
@@ -33,12 +37,15 @@ def write_json(filename, cidrs):
             }
         ]
     }
-    with open(filename, "w", encoding="utf-8") as f:
+    with open(RULES_DIR / filename, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
 
+# ---------- IPv4 ----------
+
 def get_china_ipv4(lines):
     raw = []
+
     for line in lines:
         if "|CN|ipv4" in line:
             parts = line.split("|")
@@ -52,9 +59,14 @@ def get_china_ipv4(lines):
     merged = merge_networks(raw)
     write_json("apnic_cn_ipv4_merged.json", merged)
 
+    print(f"IPv4：原始 {len(raw)} → 合并 {len(merged)}")
+
+
+# ---------- IPv6 ----------
 
 def get_china_ipv6(lines):
     raw = []
+
     for line in lines:
         if "|CN|ipv6" in line:
             parts = line.split("|")
@@ -65,9 +77,16 @@ def get_china_ipv6(lines):
     merged = merge_networks(raw)
     write_json("apnic_cn_ipv6_merged.json", merged)
 
+    print(f"IPv6：原始 {len(raw)} → 合并 {len(merged)}")
+
+
+# ---------- 编译 SRS ----------
 
 def compile_srs(name):
-    cmd = f"sing-box rule-set compile --output {name}.srs {name}.json"
+    json_path = RULES_DIR / f"{name}.json"
+    srs_path = RULES_DIR / f"{name}.srs"
+
+    cmd = f"sing-box rule-set compile --output {srs_path} {json_path}"
     p = subprocess.Popen(
         cmd,
         shell=True,
@@ -75,9 +94,12 @@ def compile_srs(name):
         stderr=subprocess.STDOUT,
         text=True
     )
+
     for line in p.stdout:
         print(line.strip())
+
     if p.wait() != 0:
+        print(f"{name}.srs 编译失败")
         sys.exit(1)
 
 
